@@ -323,3 +323,24 @@ func newEventProcessor(conf *config.AgentConfig) *event.Processor {
 
 	return event.NewProcessor(extractors, conf.MaxEPS)
 }
+
+func newObfuscator(cfg *config.ObfuscationConfig) *obfuscate.Obfuscator {
+	if cfg == nil {
+		return obfuscate.NewObfuscator(nil)
+	}
+	return obfuscate.NewObfuscator(&obfuscate.Config{
+		ES: obfuscate.JSONSettings{
+			Enabled:    cfg.ES.Enabled,
+			KeepValues: cfg.ES.KeepValues,
+		},
+		Mongo: obfuscate.JSONSettings{
+			Enabled:    cfg.Mongo.Enabled,
+			KeepValues: cfg.Mongo.KeepValues,
+		},
+		RemoveQueryString: cfg.HTTP.RemoveQueryString,
+		RemovePathDigits:  cfg.HTTP.RemovePathDigits,
+		RemoveStackTraces: cfg.RemoveStackTraces,
+		Redis:             cfg.Redis.Enabled,
+		Memcached:         cfg.Memcached.Enabled,
+	})
+}
