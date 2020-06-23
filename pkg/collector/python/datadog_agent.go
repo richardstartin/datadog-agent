@@ -200,9 +200,6 @@ var (
 // because the obfuscator depends on config.Datadog and it isn't guaranteed to be initialized during package init, but
 // will definitely be initialized by the time one of the python checks runs
 func lazyInitObfuscator() *obfuscate.Obfuscator {
-	if obfuscator != nil {
-		return obfuscator
-	}
 	obfuscatorLoader.Do(func() {
 		obfuscator = obfuscate.LoadSQLObfuscator()
 	})
