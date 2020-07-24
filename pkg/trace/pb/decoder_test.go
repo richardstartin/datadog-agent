@@ -65,24 +65,25 @@ func TestDecode(t *testing.T) {
 
 var data = [2]interface{}{
 	0: []string{
-		0:  "baggage",
-		1:  "item",
-		2:  "elasticsearch.version",
-		3:  "7.0",
-		4:  "my-name",
-		5:  "X",
-		6:  "my-service",
-		7:  "my-resource",
-		8:  "_dd.sampling_rate_whatever",
-		9:  "value whatever",
-		10: "sql",
+		0:  "", // never actually used
+		1:  "baggage",
+		2:  "item",
+		3:  "elasticsearch.version",
+		4:  "7.0",
+		5:  "my-name",
+		6:  "X",
+		7:  "my-service",
+		8:  "my-resource",
+		9:  "_dd.sampling_rate_whatever",
+		10:  "value whatever",
+		11: "sql",
 	},
 	1: [][][12]interface{}{
 		{
 			{
-				6,
-				4,
 				7,
+				5,
+				8,
 				uint64(1),
 				uint64(2),
 				uint64(3),
@@ -90,14 +91,14 @@ var data = [2]interface{}{
 				int64(456),
 				1,
 				map[interface{}]interface{}{
-					8: 9,
-					0: 1,
-					2: 3,
+					9: 10,
+					1: 2,
+					3: 4,
 				},
 				map[interface{}]float64{
-					5: 1.2,
+					6: 1.2,
 				},
-				10,
+				11,
 			},
 		},
 	},

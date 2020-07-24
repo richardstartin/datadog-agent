@@ -45,13 +45,10 @@ func parseString(dc *msgp.Reader) (string, error) {
 // parseStringDict
 func parseStringDict(dc *msgp.Reader, dict []string) (string, error) {
 	i, err := dc.ReadInt()
-	if err != nil {
-		return "", err
-	}
-	if i > len(dict)-1 {
+	if i >= len(dict) {
 		return "", fmt.Errorf("dictionary index %d out of place", i)
 	}
-	return dict[i], nil
+	return dict[i], err
 }
 
 // parseFloat64 parses a float64 even if the sent value is an int64 or an uint64;
@@ -227,11 +224,36 @@ func (z *Traces) DecodeMsgArray(dc *msgp.Reader) (err error) {
 	}
 	dict := make([]string, sz)
 	for i := range dict {
-		str, err := parseString(dc)
+		nextType, err := dc.NextType()
 		if err != nil {
 			return err
 		}
-		dict[i] = str
+
+		switch nextType {
+		case msgp.NilType:
+			// we don't like nil very much, so we'll replace it with
+			// the empty string for downstream consumers. Handling this
+			// here is nice though, because we enforce the policy for all
+			// tracers.
+			dict[i] = ""
+			break
+		case msgp.BinType:
+			bytes, err := dc.ReadBytes(nil)
+			if err != nil {
+				return err
+			}
+			dict[i] = msgp.UnsafeString(bytes)
+			break
+		case msgp.StrType:
+			utf8, err := dc.ReadString()
+			if err != nil {
+				return err
+			}
+			dict[i] = utf8
+			break
+		default:
+			return fmt.Errorf("dictionary value at index %d has unsupported type", i)
+		}
 	}
 	// read traces
 	var xsz uint32
@@ -239,10 +261,10 @@ func (z *Traces) DecodeMsgArray(dc *msgp.Reader) (err error) {
 	if err != nil {
 		return
 	}
-	if cap((*z)) >= int(xsz) {
-		(*z) = (*z)[:xsz]
+	if cap(*z) >= int(xsz) {
+		*z = (*z)[:xsz]
 	} else {
-		(*z) = make(Traces, xsz)
+		*z = make(Traces, xsz)
 	}
 	for wht := range *z {
 		var xsz uint32
@@ -271,140 +293,119 @@ func (z *Traces) DecodeMsgArray(dc *msgp.Reader) (err error) {
 const spanPropertyCount = 12
 
 // DecodeMsgArray implements msgp.Decodable
-func (z *Span) DecodeMsgArray(dc *msgp.Reader, dict []string) (err error) {
+func (z *Span) DecodeMsgArray(decoder *msgp.Reader, dictionary []string) (err error) {
 	var xsz uint32
-	xsz, err = dc.ReadArrayHeader()
+	xsz, err = decoder.ReadArrayHeader()
 	if err != nil {
 		return
 	}
 	if xsz != spanPropertyCount {
-		return errors.New("encoded span needs exactly 12 elements in array")
+		return errors.New("encoded z needs exactly 12 elements in array")
 	}
-	for i := 0; i < spanPropertyCount; i++ {
-		if dc.IsNil() {
-			if err := dc.ReadNil(); err != nil {
-				return err
-			}
-			continue
+
+	// Service (0)
+	z.Service, err = parseStringDict(decoder, dictionary)
+	if err != nil {
+		return
+	}
+	// Name (1)
+	z.Name, err = parseStringDict(decoder, dictionary)
+	if err != nil {
+		return
+	}
+	// Resource (2)
+	z.Resource, err = parseStringDict(decoder, dictionary)
+	if err != nil {
+		return
+	}
+	// TraceID (3)
+	z.TraceID, err = parseUint64(decoder)
+	if err != nil {
+		return
+	}
+	// SpanID (4)
+	z.SpanID, err = parseUint64(decoder)
+	if err != nil {
+		return
+	}
+	// ParentID (5)
+	z.ParentID, err = parseUint64(decoder)
+	if err != nil {
+		return
+	}
+	// Start (6)
+	z.Start, err = parseInt64(decoder)
+	if err != nil {
+		return
+	}
+	// Duration (7)
+	z.Duration, err = parseInt64(decoder)
+	if err != nil {
+		return
+	}
+	// Error (8)
+	z.Error, err = parseInt32(decoder)
+	if err != nil {
+		return
+	}
+	// Meta (9)
+	var metaSize uint32
+	metaSize, err = decoder.ReadMapHeader()
+	if err != nil {
+		return
+	}
+	if z.Meta == nil && metaSize > 0 {
+		z.Meta = make(map[string]string, metaSize)
+	} else if len(z.Meta) > 0 {
+		for key := range z.Meta {
+			delete(z.Meta, key)
 		}
-		switch i {
-		case 0:
-			// Service (0)
-			z.Service, err = parseStringDict(dc, dict)
-			if err != nil {
-				return
-			}
-		case 1:
-			// Name (1)
-			z.Name, err = parseStringDict(dc, dict)
-			if err != nil {
-				return
-			}
-		case 2:
-			// Resource (2)
-			z.Resource, err = parseStringDict(dc, dict)
-			if err != nil {
-				return
-			}
-		case 3:
-			// TraceID (3)
-			z.TraceID, err = parseUint64(dc)
-			if err != nil {
-				return
-			}
-		case 4:
-			// SpanID (4)
-			z.SpanID, err = parseUint64(dc)
-			if err != nil {
-				return
-			}
-		case 5:
-			// ParentID (5)
-			z.ParentID, err = parseUint64(dc)
-			if err != nil {
-				return
-			}
-		case 6:
-			// Start (6)
-			z.Start, err = parseInt64(dc)
-			if err != nil {
-				return
-			}
-		case 7:
-			// Duration (7)
-			z.Duration, err = parseInt64(dc)
-			if err != nil {
-				return
-			}
-		case 8:
-			// Error (8)
-			z.Error, err = parseInt32(dc)
-			if err != nil {
-				return
-			}
-		case 9:
-			// Meta (9)
-			var zwht uint32
-			zwht, err = dc.ReadMapHeader()
-			if err != nil {
-				return
-			}
-			if z.Meta == nil && zwht > 0 {
-				z.Meta = make(map[string]string, zwht)
-			} else if len(z.Meta) > 0 {
-				for key := range z.Meta {
-					delete(z.Meta, key)
-				}
-			}
-			for zwht > 0 {
-				zwht--
-				var zxvk string
-				var zbzg string
-				zxvk, err = parseStringDict(dc, dict)
-				if err != nil {
-					return
-				}
-				zbzg, err = parseStringDict(dc, dict)
-				if err != nil {
-					return
-				}
-				z.Meta[zxvk] = zbzg
-			}
-		case 10:
-			// Metrics (10)
-			var zhct uint32
-			zhct, err = dc.ReadMapHeader()
-			if err != nil {
-				return
-			}
-			if z.Metrics == nil && zhct > 0 {
-				z.Metrics = make(map[string]float64, zhct)
-			} else if len(z.Metrics) > 0 {
-				for key := range z.Metrics {
-					delete(z.Metrics, key)
-				}
-			}
-			for zhct > 0 {
-				zhct--
-				var zbai string
-				var zcmr float64
-				zbai, err = parseStringDict(dc, dict)
-				if err != nil {
-					return
-				}
-				zcmr, err = parseFloat64(dc)
-				if err != nil {
-					return
-				}
-				z.Metrics[zbai] = zcmr
-			}
-		case 11:
-			// Type (11)
-			z.Type, err = parseStringDict(dc, dict)
-			if err != nil {
-				return
-			}
+	}
+	for metaSize > 0 {
+		metaSize--
+		var zxvk string
+		var zbzg string
+		zxvk, err = parseStringDict(decoder, dictionary)
+		if err != nil {
+			return
 		}
+		zbzg, err = parseStringDict(decoder, dictionary)
+		if err != nil {
+			return
+		}
+		z.Meta[zxvk] = zbzg
+	}
+	// Metrics (10)
+	var metricsSize uint32
+	metricsSize, err = decoder.ReadMapHeader()
+	if err != nil {
+		return
+	}
+	if z.Metrics == nil && metricsSize > 0 {
+		z.Metrics = make(map[string]float64, metricsSize)
+	} else if len(z.Metrics) > 0 {
+		for key := range z.Metrics {
+			delete(z.Metrics, key)
+		}
+	}
+	for metricsSize > 0 {
+		metricsSize--
+		var zbai string
+		var zcmr float64
+		zbai, err = parseStringDict(decoder, dictionary)
+		if err != nil {
+			return
+		}
+		zcmr, err = parseFloat64(decoder)
+		if err != nil {
+			return
+		}
+		z.Metrics[zbai] = zcmr
+	}
+	// Type (11)
+	z.Type, err = parseStringDict(decoder, dictionary)
+	if err != nil {
+		return
 	}
 	return nil
 }
