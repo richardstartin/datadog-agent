@@ -62,6 +62,8 @@ func parseFloat64(dc *msgp.Reader) (float64, error) {
 	}
 
 	switch t {
+	case msgp.NilType:
+		return 0, nil
 	case msgp.IntType:
 		i, err := dc.ReadInt64()
 		if err != nil {
@@ -112,6 +114,8 @@ func parseInt64(dc *msgp.Reader) (int64, error) {
 	}
 
 	switch t {
+	case msgp.NilType:
+		return 0, nil
 	case msgp.IntType:
 		i, err := dc.ReadInt64()
 		if err != nil {
@@ -148,6 +152,8 @@ func parseUint64(dc *msgp.Reader) (uint64, error) {
 	}
 
 	switch t {
+	case msgp.NilType:
+		return 0, nil
 	case msgp.UintType:
 		u, err := dc.ReadUint64()
 		if err != nil {
@@ -189,6 +195,8 @@ func parseInt32(dc *msgp.Reader) (int32, error) {
 	}
 
 	switch t {
+	case msgp.NilType:
+		return 0, nil
 	case msgp.IntType:
 		i, err := dc.ReadInt32()
 		if err != nil {
