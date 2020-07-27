@@ -357,58 +357,62 @@ func (z *Span) DecodeMsgArray(decoder *msgp.Reader, dictionary []string) (err er
 		return
 	}
 	// Meta (9)
-	var metaSize uint32
-	metaSize, err = decoder.ReadMapHeader()
-	if err != nil {
-		return
-	}
-	if z.Meta == nil && metaSize > 0 {
-		z.Meta = make(map[string]string, metaSize)
-	} else if len(z.Meta) > 0 {
-		for key := range z.Meta {
-			delete(z.Meta, key)
-		}
-	}
-	for metaSize > 0 {
-		metaSize--
-		var zxvk string
-		var zbzg string
-		zxvk, err = parseStringDict(decoder, dictionary)
+	if !decoder.IsNil() {
+		var metaSize uint32
+		metaSize, err = decoder.ReadMapHeader()
 		if err != nil {
 			return
 		}
-		zbzg, err = parseStringDict(decoder, dictionary)
+		if z.Meta == nil && metaSize > 0 {
+			z.Meta = make(map[string]string, metaSize)
+		} else if len(z.Meta) > 0 {
+			for key := range z.Meta {
+				delete(z.Meta, key)
+			}
+		}
+		for metaSize > 0 {
+			metaSize--
+			var zxvk string
+			var zbzg string
+			zxvk, err = parseStringDict(decoder, dictionary)
+			if err != nil {
+				return
+			}
+			zbzg, err = parseStringDict(decoder, dictionary)
+			if err != nil {
+				return
+			}
+			z.Meta[zxvk] = zbzg
+		}
+	}
+	if !decoder.IsNil() {
+		// Metrics (10)
+		var metricsSize uint32
+		metricsSize, err = decoder.ReadMapHeader()
 		if err != nil {
 			return
 		}
-		z.Meta[zxvk] = zbzg
-	}
-	// Metrics (10)
-	var metricsSize uint32
-	metricsSize, err = decoder.ReadMapHeader()
-	if err != nil {
-		return
-	}
-	if z.Metrics == nil && metricsSize > 0 {
-		z.Metrics = make(map[string]float64, metricsSize)
-	} else if len(z.Metrics) > 0 {
-		for key := range z.Metrics {
-			delete(z.Metrics, key)
+		if z.Metrics == nil && metricsSize > 0 {
+			z.Metrics = make(map[string]float64, metricsSize)
+		} else if len(z.Metrics) > 0 {
+			for key := range z.Metrics {
+				delete(z.Metrics, key)
+			}
 		}
-	}
-	for metricsSize > 0 {
-		metricsSize--
-		var zbai string
-		var zcmr float64
-		zbai, err = parseStringDict(decoder, dictionary)
-		if err != nil {
-			return
+		for metricsSize > 0 {
+			metricsSize--
+			var zbai string
+			var zcmr float64
+			zbai, err = parseStringDict(decoder, dictionary)
+			if err != nil {
+				return
+			}
+			zcmr, err = parseFloat64(decoder)
+			if err != nil {
+				return
+			}
+			z.Metrics[zbai] = zcmr
 		}
-		zcmr, err = parseFloat64(decoder)
-		if err != nil {
-			return
-		}
-		z.Metrics[zbai] = zcmr
 	}
 	// Type (11)
 	z.Type, err = parseStringDict(decoder, dictionary)
